@@ -79,7 +79,7 @@ export async function processQuery(
   customSchema?: string
 ): Promise<QueryResult> {
   const schema = customSchema || SCHEMA_DESCRIPTION;
-  const systemPrompt = SYSTEM_PROMPT.replace(SCHEMA_DESCRIPTION, schema);
+  const systemPrompt = SYSTEM_PROMPT.replace('SCHEMA_PLACEHOLDER', schema);
 
   const messages = [
     { role: 'system' as const, content: systemPrompt },
