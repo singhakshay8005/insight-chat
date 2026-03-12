@@ -48,14 +48,27 @@ export function loadCsvData(tableName: string, rows: Record<string, unknown>[]) 
   initDatabase();
 
   const columns = Object.keys(rows[0]);
-  const colDefs = columns.map(c => `${c.replace(/\s+/g, '_')} STRING`).join(', ');
+  const colDefs = columns.map(c => `[${c.replace(/\s+/g, '_')}] STRING`).join(', ');
+  const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
 
-  alasql(`DROP TABLE IF EXISTS ${tableName}`);
-  alasql(`CREATE TABLE ${tableName} (${colDefs})`);
+  alasql(`DROP TABLE IF EXISTS [${safeName}]`);
+  alasql(`CREATE TABLE [${safeName}] (${colDefs})`);
 
-  for (const row of rows) {
-    const vals = columns.map(c => row[c]);
-    const placeholders = columns.map(() => '?').join(', ');
-    alasql(`INSERT INTO ${tableName} VALUES (${placeholders})`, vals);
-  }
+  // Batch insert using alasql's SELECT FROM array syntax (much faster)
+  const cleanRows = rows.map(row => {
+    const clean: Record<string, unknown> = {};
+    for (const c of columns) {
+      const key = c.replace(/\s+/g, '_');
+      const val = row[c];
+      // Try to convert numeric strings to numbers for better querying
+      if (typeof val === 'string' && val !== '' && !isNaN(Number(val))) {
+        clean[key] = Number(val);
+      } else {
+        clean[key] = val;
+      }
+    }
+    return clean;
+  });
+
+  alasql(`INSERT INTO [${safeName}] SELECT * FROM ?`, [cleanRows]);
 }
