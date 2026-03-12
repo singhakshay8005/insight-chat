@@ -9,6 +9,8 @@ import { processQuery, type ChartConfig, type ConversationMessage } from '@/lib/
 import { initDatabase } from '@/lib/database';
 import { SCHEMA_DESCRIPTION } from '@/lib/sampleData';
 
+type UploadedTable = { name: string; columns: string[] };
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
