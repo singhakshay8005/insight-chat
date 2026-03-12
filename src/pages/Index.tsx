@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { BarChart3, Database, Upload as UploadIcon } from 'lucide-react';
+import { DownloadButton } from '@/components/DownloadButton';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
 import { Dashboard } from '@/components/Dashboard';
