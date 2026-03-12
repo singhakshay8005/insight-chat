@@ -23,7 +23,7 @@ export interface ConversationMessage {
 
 const SYSTEM_PROMPT = `You are a Business Intelligence SQL analyst. You help users query a database and generate visualizations.
 
-${SCHEMA_DESCRIPTION}
+SCHEMA_PLACEHOLDER
 
 INSTRUCTIONS:
 1. Analyze the user's natural language question
