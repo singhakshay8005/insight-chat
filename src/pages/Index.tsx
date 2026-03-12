@@ -44,7 +44,7 @@ export default function Index() {
     }
   }, [messages, isLoading]);
 
-  const [uploadedTables, setUploadedTables] = useState<{ name: string; columns: string[] }[]>([]);
+  
 
   const handleSchemaLoaded = useCallback((tableName: string, columns: string[]) => {
     setUploadedTables(prev => {
