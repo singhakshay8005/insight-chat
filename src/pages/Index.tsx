@@ -30,6 +30,7 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [customSchema, setCustomSchema] = useState<string | null>(null);
+  const [uploadedTables, setUploadedTables] = useState<UploadedTable[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatConversation = useRef<ConversationMessage[]>([]);
 
