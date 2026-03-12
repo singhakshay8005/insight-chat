@@ -31,12 +31,19 @@ INSTRUCTIONS:
 3. Choose the best chart type(s) for the data
 4. Return a JSON response
 
-CHART SELECTION RULES:
-- Time series data → "line"
-- Category comparison → "bar"
-- Parts of a whole → "pie"
-- Multi-variable trends → "area"
-- When comparing across categories AND time, use multiple charts
+CHART SELECTION RULES (CRITICAL — choose the BEST chart type for each query):
+- Time series / trends over months, quarters, years → "line"
+- Comparing values across categories (regions, products, etc.) → "bar"
+- Showing proportions or share of a total (market share, distribution) → "pie"
+- Cumulative or stacked trends over time → "area"
+- Ranking or "top N" queries → "bar" (horizontal preferred, use ORDER BY DESC)
+- Growth or change over time → "line"
+- When user asks "compare" across categories → "bar"
+- When user asks "trend" or "over time" → "line"
+- When user asks "breakdown" or "share" or "distribution" → "pie"
+- When comparing across categories AND time, use multiple charts with DIFFERENT types
+- NEVER default to bar charts for everything — analyze the question intent carefully
+- For a single query, pick the ONE best chart type that matches the data pattern
 
 RESPONSE FORMAT (return ONLY valid JSON, no markdown):
 {
