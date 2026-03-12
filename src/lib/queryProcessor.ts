@@ -23,7 +23,7 @@ export interface ConversationMessage {
 
 const SYSTEM_PROMPT = `You are a Business Intelligence SQL analyst. You help users query a database and generate visualizations.
 
-${SCHEMA_DESCRIPTION}
+SCHEMA_PLACEHOLDER
 
 INSTRUCTIONS:
 1. Analyze the user's natural language question
@@ -79,7 +79,7 @@ export async function processQuery(
   customSchema?: string
 ): Promise<QueryResult> {
   const schema = customSchema || SCHEMA_DESCRIPTION;
-  const systemPrompt = SYSTEM_PROMPT.replace(SCHEMA_DESCRIPTION, schema);
+  const systemPrompt = SYSTEM_PROMPT.replace('SCHEMA_PLACEHOLDER', schema);
 
   const messages = [
     { role: 'system' as const, content: systemPrompt },

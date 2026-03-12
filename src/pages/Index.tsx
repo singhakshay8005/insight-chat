@@ -9,6 +9,8 @@ import { processQuery, type ChartConfig, type ConversationMessage } from '@/lib/
 import { initDatabase } from '@/lib/database';
 import { SCHEMA_DESCRIPTION } from '@/lib/sampleData';
 
+type UploadedTable = { name: string; columns: string[] };
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -28,6 +30,7 @@ export default function Index() {
   const [isLoading, setIsLoading] = useState(false);
   const [showUploader, setShowUploader] = useState(false);
   const [customSchema, setCustomSchema] = useState<string | null>(null);
+  const [uploadedTables, setUploadedTables] = useState<UploadedTable[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatConversation = useRef<ConversationMessage[]>([]);
 
@@ -41,9 +44,19 @@ export default function Index() {
     }
   }, [messages, isLoading]);
 
+  
+
   const handleSchemaLoaded = useCallback((tableName: string, columns: string[]) => {
-    const schema = `\nTable: ${tableName}\nColumns:\n${columns.map(c => `- ${c} (TEXT)`).join('\n')}`;
-    setCustomSchema(prev => (prev || SCHEMA_DESCRIPTION) + schema);
+    setUploadedTables(prev => {
+      const updated = [...prev.filter(t => t.name !== tableName), { name: tableName, columns }];
+      const uploadedSchema = updated
+        .map(t => `\nTable: ${t.name}\nColumns:\n${t.columns.map(c => `- ${c} (TEXT)`).join('\n')}`)
+        .join('\n');
+      setCustomSchema(
+        `Database Schema:\n\nThe user has uploaded their own data. ONLY use the following tables for queries. Do NOT reference sales or customers tables.\n${uploadedSchema}\n`
+      );
+      return updated;
+    });
   }, []);
 
   const handleSend = useCallback(async (input: string) => {
