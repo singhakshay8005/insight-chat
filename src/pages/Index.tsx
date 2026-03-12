@@ -157,7 +157,12 @@ export default function Index() {
       {/* Dashboard Panel (desktop) */}
       <div className="hidden lg:flex flex-1 flex-col bg-muted/30 overflow-y-auto p-6 scrollbar-thin">
         {latestCharts && latestCharts.length > 0 ? (
-          <Dashboard charts={latestCharts} />
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <DownloadButton charts={latestCharts} />
+            </div>
+            <Dashboard charts={latestCharts} />
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-20 h-20 rounded-3xl bg-secondary flex items-center justify-center mb-4">
