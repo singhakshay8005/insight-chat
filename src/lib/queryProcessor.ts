@@ -1,4 +1,3 @@
-import { SCHEMA_DESCRIPTION } from './sampleData';
 import { executeQuery } from './database';
 
 export interface ChartConfig {
@@ -74,15 +73,21 @@ SQL RULES:
 - For "top" queries use ORDER BY ... DESC LIMIT
 - Always alias computed columns clearly (e.g. SUM(revenue) AS total_revenue)
 - For month ordering, use: ORDER BY MIN(date) when grouping by month
-- NEVER use EXTRACT, strftime, or date functions. Use the month, quarter, year columns directly.
+- NEVER use EXTRACT, strftime, or date functions. Use the existing columns directly.
 `;
 
 export async function processQuery(
   userMessage: string,
   conversationHistory: ConversationMessage[],
-  customSchema?: string
+  schema?: string
 ): Promise<QueryResult> {
-  const schema = customSchema || SCHEMA_DESCRIPTION;
+  if (!schema) {
+    return {
+      message: 'No data has been loaded yet. Please upload a CSV file first to start analyzing your data.',
+      charts: [],
+    };
+  }
+
   const systemPrompt = SYSTEM_PROMPT.replace('SCHEMA_PLACEHOLDER', schema);
 
   const messages = [
@@ -114,7 +119,6 @@ export async function processQuery(
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || '';
 
-    // Parse the JSON response
     let parsed: { sql_queries: { sql: string; chart: { type: string; title: string; x_axis: string; y_axis: string } }[]; message: string };
     try {
       const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
