@@ -9,8 +9,8 @@ export function initDatabase() {
 
 export function getLoadedTables(): string[] {
   try {
-    const tables = alasql('SHOW TABLES');
-    return tables.map((t: { tableid: string }) => t.tableid);
+    const tables = alasql('SHOW TABLES') as { tableid: string }[];
+    return tables.map(t => t.tableid);
   } catch {
     return [];
   }
