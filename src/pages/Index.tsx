@@ -135,7 +135,10 @@ export default function Index() {
             <div key={i} className="space-y-3">
               <ChatMessage role={msg.role} content={msg.content} sqlQuery={msg.sqlQuery} />
               {msg.charts && msg.charts.length > 0 && (
-                <div className="lg:hidden">
+                <div className="lg:hidden space-y-2">
+                  <div className="flex justify-end">
+                    <DownloadButton charts={msg.charts} />
+                  </div>
                   <Dashboard charts={msg.charts} />
                 </div>
               )}
