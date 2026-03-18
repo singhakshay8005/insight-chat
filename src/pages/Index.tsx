@@ -151,7 +151,7 @@ export default function Index() {
                   <ChatMessage role={msg.role} content={msg.content} sqlQuery={msg.sqlQuery} />
                   {/* Mobile: show charts inline */}
                   {msg.charts && msg.charts.length > 0 && (
-                    <div className="lg:hidden space-y-2">
+                    <div className="md:hidden space-y-2">
                       <div className="flex justify-end">
                         <DownloadButton charts={msg.charts} />
                       </div>
@@ -174,11 +174,11 @@ export default function Index() {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle withHandle className="hidden lg:flex" />
+        <ResizableHandle withHandle className="hidden md:flex" />
 
         {/* Dashboard Panel (desktop) */}
         <ResizablePanel defaultSize={65} minSize={40}>
-          <div className="hidden lg:flex flex-1 flex-col h-full bg-muted/30 overflow-y-auto p-6 scrollbar-thin">
+          <div className="hidden md:flex flex-1 flex-col h-full bg-muted/30 overflow-y-auto p-6 scrollbar-thin">
             {latestCharts && latestCharts.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex justify-end">
