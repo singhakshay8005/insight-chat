@@ -38,14 +38,20 @@ export default function Index() {
     }
   }, [messages, isLoading]);
 
-  const handleSchemaLoaded = useCallback((tableName: string, columns: string[]) => {
+  const handleSchemaLoaded = useCallback((tableName: string, columns: string[], columnMeta: ColumnMeta[]) => {
     setUploadedTables(prev => {
-      const updated = [...prev.filter(t => t.name !== tableName), { name: tableName, columns }];
+      const updated = [...prev.filter(t => t.name !== tableName), { name: tableName, columns, meta: columnMeta }];
       const uploadedSchema = updated
-        .map(t => `\nTable: ${t.name}\nColumns:\n${t.columns.map(c => `- ${c} (TEXT)`).join('\n')}`)
+        .map(t => {
+          const colDetails = t.meta.map(m => {
+            const samples = m.sample.slice(0, 3).map(s => String(s)).join(', ');
+            return `  - ${m.name} (${m.type})${samples ? ` — e.g. ${samples}` : ''}`;
+          }).join('\n');
+          return `\nTable: ${t.name}\nColumns:\n${colDetails}`;
+        })
         .join('\n');
       setCustomSchema(
-        `Database Schema:\n\nThe user has uploaded their own data. ONLY use the following tables for queries.\n${uploadedSchema}\n`
+        `Database Schema:\n\nThe user has uploaded their own data. ONLY use the following tables and columns for queries.\n${uploadedSchema}\n\nIMPORTANT: NUMBER columns support SUM, AVG, COUNT, MIN, MAX. TEXT columns are for labels/categories/grouping.\n`
       );
       return updated;
     });

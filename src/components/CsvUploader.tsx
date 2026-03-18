@@ -90,9 +90,9 @@ export function CsvUploader({ onSchemaLoaded }: CsvUploaderProps) {
           const tableName = file.name.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
           const finalColumns = Array.from(columnMap.values());
 
-          loadCsvData(tableName, cleanRows);
+          const columnMeta = loadCsvData(tableName, cleanRows);
           setFileName(file.name);
-          onSchemaLoaded(tableName, finalColumns);
+          onSchemaLoaded(tableName, finalColumns, columnMeta);
           toast.success(`Loaded ${cleanRows.length} rows with ${finalColumns.length} columns into "${tableName}"`);
         },
         error: (err) => {
