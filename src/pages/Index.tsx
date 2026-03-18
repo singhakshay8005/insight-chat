@@ -8,7 +8,7 @@ import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { CsvUploader } from '@/components/CsvUploader';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { processQuery, type ChartConfig, type ConversationMessage } from '@/lib/queryProcessor';
-import { initDatabase } from '@/lib/database';
+import { initDatabase, type ColumnMeta } from '@/lib/database';
 
 type UploadedTable = { name: string; columns: string[] };
 
