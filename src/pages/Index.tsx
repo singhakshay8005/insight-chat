@@ -10,7 +10,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { processQuery, type ChartConfig, type ConversationMessage } from '@/lib/queryProcessor';
 import { initDatabase, type ColumnMeta } from '@/lib/database';
 
-type UploadedTable = { name: string; columns: string[] };
+type UploadedTable = { name: string; columns: string[]; meta: ColumnMeta[] };
 
 interface Message {
   role: 'user' | 'assistant';
