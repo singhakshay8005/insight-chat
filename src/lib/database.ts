@@ -31,13 +31,32 @@ export function executeQuery(sql: string): { data: Record<string, unknown>[]; er
   }
 }
 
-export function loadCsvData(tableName: string, rows: Record<string, unknown>[]) {
-  if (rows.length === 0) return;
+export interface ColumnMeta {
+  name: string;
+  type: 'NUMBER' | 'TEXT';
+  sample: unknown[];
+}
+
+export function loadCsvData(tableName: string, rows: Record<string, unknown>[]): ColumnMeta[] {
+  if (rows.length === 0) return [];
   initDatabase();
 
   const columns = Object.keys(rows[0]);
-  const colDefs = columns.map(c => `[${c.replace(/\s+/g, '_')}] STRING`).join(', ');
   const safeName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+
+  // Detect column types by scanning first 50 rows
+  const columnTypes: Record<string, 'NUMBER' | 'TEXT'> = {};
+  for (const c of columns) {
+    const key = c.replace(/\s+/g, '_');
+    const sampleVals = rows.slice(0, 50).map(r => r[c]).filter(v => v !== '' && v !== null && v !== undefined);
+    const numericCount = sampleVals.filter(v => !isNaN(Number(v))).length;
+    columnTypes[key] = numericCount > sampleVals.length * 0.7 ? 'NUMBER' : 'TEXT';
+  }
+
+  const colDefs = columns.map(c => {
+    const key = c.replace(/\s+/g, '_');
+    return `[${key}] ${columnTypes[key] === 'NUMBER' ? 'NUMBER' : 'STRING'}`;
+  }).join(', ');
 
   alasql(`DROP TABLE IF EXISTS [${safeName}]`);
   alasql(`CREATE TABLE [${safeName}] (${colDefs})`);
@@ -47,7 +66,7 @@ export function loadCsvData(tableName: string, rows: Record<string, unknown>[]) 
     for (const c of columns) {
       const key = c.replace(/\s+/g, '_');
       const val = row[c];
-      if (typeof val === 'string' && val !== '' && !isNaN(Number(val))) {
+      if (columnTypes[key] === 'NUMBER' && typeof val === 'string' && val !== '' && !isNaN(Number(val))) {
         clean[key] = Number(val);
       } else {
         clean[key] = val;
@@ -57,4 +76,15 @@ export function loadCsvData(tableName: string, rows: Record<string, unknown>[]) 
   });
 
   alasql(`INSERT INTO [${safeName}] SELECT * FROM ?`, [cleanRows]);
+
+  // Return column metadata with samples
+  const sampleRows = rows.slice(0, 5);
+  return columns.map(c => {
+    const key = c.replace(/\s+/g, '_');
+    return {
+      name: key,
+      type: columnTypes[key],
+      sample: sampleRows.map(r => r[c]).filter(v => v !== '' && v !== null),
+    };
+  });
 }

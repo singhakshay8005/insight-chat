@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
 import { Upload, FileSpreadsheet, X } from 'lucide-react';
 import Papa from 'papaparse';
-import { loadCsvData } from '@/lib/database';
+import { loadCsvData, type ColumnMeta } from '@/lib/database';
 import { toast } from 'sonner';
 
 interface CsvUploaderProps {
-  onSchemaLoaded: (tableName: string, columns: string[]) => void;
+  onSchemaLoaded: (tableName: string, columns: string[], columnMeta: ColumnMeta[]) => void;
 }
 
 export function CsvUploader({ onSchemaLoaded }: CsvUploaderProps) {
@@ -90,9 +90,9 @@ export function CsvUploader({ onSchemaLoaded }: CsvUploaderProps) {
           const tableName = file.name.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
           const finalColumns = Array.from(columnMap.values());
 
-          loadCsvData(tableName, cleanRows);
+          const columnMeta = loadCsvData(tableName, cleanRows);
           setFileName(file.name);
-          onSchemaLoaded(tableName, finalColumns);
+          onSchemaLoaded(tableName, finalColumns, columnMeta);
           toast.success(`Loaded ${cleanRows.length} rows with ${finalColumns.length} columns into "${tableName}"`);
         },
         error: (err) => {
