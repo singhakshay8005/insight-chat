@@ -151,7 +151,7 @@ export default function Index() {
                   <ChatMessage role={msg.role} content={msg.content} sqlQuery={msg.sqlQuery} />
                   {/* Mobile: show charts inline */}
                   {msg.charts && msg.charts.length > 0 && (
-                    <div className="lg:hidden space-y-2">
+                    <div className="md:hidden space-y-2">
                       <div className="flex justify-end">
                         <DownloadButton charts={msg.charts} />
                       </div>
