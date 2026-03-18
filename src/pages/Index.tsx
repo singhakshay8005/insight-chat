@@ -174,7 +174,7 @@ export default function Index() {
           </div>
         </ResizablePanel>
 
-        <ResizableHandle withHandle className="hidden lg:flex" />
+        <ResizableHandle withHandle className="hidden md:flex" />
 
         {/* Dashboard Panel (desktop) */}
         <ResizablePanel defaultSize={65} minSize={40}>
