@@ -178,7 +178,7 @@ export default function Index() {
 
         {/* Dashboard Panel (desktop) */}
         <ResizablePanel defaultSize={65} minSize={40}>
-          <div className="hidden lg:flex flex-1 flex-col h-full bg-muted/30 overflow-y-auto p-6 scrollbar-thin">
+          <div className="hidden md:flex flex-1 flex-col h-full bg-muted/30 overflow-y-auto p-6 scrollbar-thin">
             {latestCharts && latestCharts.length > 0 ? (
               <div className="space-y-4">
                 <div className="flex justify-end">
