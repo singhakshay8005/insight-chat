@@ -79,7 +79,68 @@ RESPONSE FORMAT (return ONLY valid JSON, NO markdown fences, NO extra text):
 }
 `;
 
+interface PlanQuery {
+  sql: string;
+  chart?: { type?: string; title?: string; x_axis?: string; y_axis?: string };
+}
+interface Plan {
+  sql_queries: PlanQuery[];
+  message?: string;
+}
+
+function pickChartType(type: string | undefined, rowCount: number, xAxis: string): ChartConfig['type'] {
+  const allowed = ['line', 'bar', 'pie', 'area'];
+  let t = allowed.includes(type ?? '') ? (type as ChartConfig['type']) : 'bar';
+  if (t === 'pie' && rowCount > 8) t = 'bar';
+  if (/date|month|year|day|time|quarter|week/i.test(xAxis) && (t === 'bar' || t === 'pie')) t = 'line';
+  return t;
+}
+
+// Turns whatever the model returned into a usable plan, even if it replied with
+// prose or a bare SQL statement instead of the requested JSON.
+function extractPlan(content: string): Plan | null {
+  if (!content) return null;
+
+  const withoutFences = content.replace(/```(?:json|sql)?/gi, '```');
+  const jsonCandidates: string[] = [];
+  const start = withoutFences.indexOf('{');
+  const end = withoutFences.lastIndexOf('}');
+  if (start !== -1 && end > start) jsonCandidates.push(withoutFences.slice(start, end + 1));
+  jsonCandidates.push(withoutFences.replace(/```/g, '').trim());
+
+  for (const candidate of jsonCandidates) {
+    try {
+      const obj = JSON.parse(candidate);
+      if (obj && Array.isArray(obj.sql_queries)) return obj as Plan;
+      if (obj && typeof obj.sql === 'string') {
+        return { sql_queries: [{ sql: obj.sql, chart: obj.chart }], message: obj.message };
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  // Last resort: pull a raw SELECT statement out of the text.
+  const sqlMatch = content.match(/SELECT[\s\S]*?(?:;|```|$)/i);
+  if (sqlMatch) {
+    const sql = sqlMatch[0].replace(/```/g, '').replace(/;\s*$/, '').trim();
+    if (sql.length > 10) return { sql_queries: [{ sql }] };
+  }
+  return null;
+}
+
+// Never show SQL or code blocks to the user.
+function cleanMessage(message: string | undefined): string {
+  if (!message) return '';
+  let m = message.replace(/```[\s\S]*?```/g, '').trim();
+  if (/^\s*SELECT\b/i.test(m) || /\bFROM\b[\s\S]*\bGROUP BY\b/i.test(m)) {
+    m = m.replace(/SELECT[\s\S]*?(?:;|$)/gi, '').trim();
+  }
+  return m;
+}
+
 export async function processQuery(
+
   userMessage: string,
   conversationHistory: ConversationMessage[],
   schema?: string
