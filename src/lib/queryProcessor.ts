@@ -139,7 +139,73 @@ function cleanMessage(message: string | undefined): string {
   return m;
 }
 
+function formatNumber(v: unknown): string {
+  if (typeof v !== 'number') return String(v);
+  return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+// Deterministic, always-correct fallback description built straight from the rows.
+function localSummary(charts: ChartConfig[]): string {
+  const parts: string[] = [];
+  for (const c of charts) {
+    const rows = c.data.filter(r => typeof r[c.y_axis] === 'number') as Record<string, number | string>[];
+    if (rows.length === 0) continue;
+    const sorted = [...rows].sort((a, b) => (b[c.y_axis] as number) - (a[c.y_axis] as number));
+    const top = sorted[0];
+    const low = sorted[sorted.length - 1];
+    const total = sorted.reduce((s, r) => s + (r[c.y_axis] as number), 0);
+    let line = `**${String(top[c.x_axis])}** is highest at **${formatNumber(top[c.y_axis])}**`;
+    if (sorted.length > 1) {
+      line += `, and **${String(low[c.x_axis])}** is lowest at **${formatNumber(low[c.y_axis])}**`;
+    }
+    line += `. Across ${sorted.length} ${sorted.length === 1 ? 'entry' : 'entries'} the total is **${formatNumber(total)}**.`;
+    parts.push(line);
+  }
+  return parts.join(' ');
+}
+
+async function summarizeFromResults(userMessage: string, charts: ChartConfig[]): Promise<string> {
+  const fallback = localSummary(charts);
+  // Give the model ONLY the computed rows so it cannot invent values.
+  const tables = charts
+    .map(c => {
+      const rows = c.data.slice(0, 40).map(r => `${String(r[c.x_axis])}: ${formatNumber(r[c.y_axis])}`).join('\n');
+      return `${c.title} (${c.x_axis} → ${c.y_axis}):\n${rows}`;
+    })
+    .join('\n\n');
+
+  try {
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bi-chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You explain business results to a non-technical person in 2-4 short sentences.\n' +
+              'You are given the FINAL computed results. Use ONLY these numbers and labels.\n' +
+              'Never invent, guess or change a label or value. The highest value is whichever row actually has the largest number here.\n' +
+              'Bold key figures with **. No SQL, no tables, no jargon, no bullet lists.',
+          },
+          { role: 'user', content: `Question: ${userMessage}\n\nResults:\n${tables}` },
+        ],
+      }),
+    });
+    if (!response.ok) return fallback;
+    const json = await response.json();
+    const text = cleanMessage(json.choices?.[0]?.message?.content || '');
+    return text || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function processQuery(
+
 
   userMessage: string,
   conversationHistory: ConversationMessage[],
@@ -215,15 +281,18 @@ export async function processQuery(
       }
     }
 
-    const message = cleanMessage(parsed.message);
-
     if (charts.length === 0) {
       return {
-        message: message || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
+        message: cleanMessage(parsed.message) || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
         charts: [],
         sql_query: lastSql,
       };
     }
+
+    // The first answer is written before the numbers exist, so it can be wrong.
+    // Rewrite it from the real results.
+    const message = await summarizeFromResults(userMessage, charts);
+
 
     return {
       message: message || 'Here are your results.',
