@@ -79,7 +79,68 @@ RESPONSE FORMAT (return ONLY valid JSON, NO markdown fences, NO extra text):
 }
 `;
 
+interface PlanQuery {
+  sql: string;
+  chart?: { type?: string; title?: string; x_axis?: string; y_axis?: string };
+}
+interface Plan {
+  sql_queries: PlanQuery[];
+  message?: string;
+}
+
+function pickChartType(type: string | undefined, rowCount: number, xAxis: string): ChartConfig['type'] {
+  const allowed = ['line', 'bar', 'pie', 'area'];
+  let t = allowed.includes(type ?? '') ? (type as ChartConfig['type']) : 'bar';
+  if (t === 'pie' && rowCount > 8) t = 'bar';
+  if (/date|month|year|day|time|quarter|week/i.test(xAxis) && (t === 'bar' || t === 'pie')) t = 'line';
+  return t;
+}
+
+// Turns whatever the model returned into a usable plan, even if it replied with
+// prose or a bare SQL statement instead of the requested JSON.
+function extractPlan(content: string): Plan | null {
+  if (!content) return null;
+
+  const withoutFences = content.replace(/```(?:json|sql)?/gi, '```');
+  const jsonCandidates: string[] = [];
+  const start = withoutFences.indexOf('{');
+  const end = withoutFences.lastIndexOf('}');
+  if (start !== -1 && end > start) jsonCandidates.push(withoutFences.slice(start, end + 1));
+  jsonCandidates.push(withoutFences.replace(/```/g, '').trim());
+
+  for (const candidate of jsonCandidates) {
+    try {
+      const obj = JSON.parse(candidate);
+      if (obj && Array.isArray(obj.sql_queries)) return obj as Plan;
+      if (obj && typeof obj.sql === 'string') {
+        return { sql_queries: [{ sql: obj.sql, chart: obj.chart }], message: obj.message };
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  // Last resort: pull a raw SELECT statement out of the text.
+  const sqlMatch = content.match(/SELECT[\s\S]*?(?:;|```|$)/i);
+  if (sqlMatch) {
+    const sql = sqlMatch[0].replace(/```/g, '').replace(/;\s*$/, '').trim();
+    if (sql.length > 10) return { sql_queries: [{ sql }] };
+  }
+  return null;
+}
+
+// Never show SQL or code blocks to the user.
+function cleanMessage(message: string | undefined): string {
+  if (!message) return '';
+  let m = message.replace(/```[\s\S]*?```/g, '').trim();
+  if (/^\s*SELECT\b/i.test(m) || /\bFROM\b[\s\S]*\bGROUP BY\b/i.test(m)) {
+    m = m.replace(/SELECT[\s\S]*?(?:;|$)/gi, '').trim();
+  }
+  return m;
+}
+
 export async function processQuery(
+
   userMessage: string,
   conversationHistory: ConversationMessage[],
   schema?: string
@@ -122,39 +183,54 @@ export async function processQuery(
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || '';
 
-    let parsed: { sql_queries: { sql: string; chart: { type: string; title: string; x_axis: string; y_axis: string } }[]; message: string };
-    try {
-      const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      parsed = JSON.parse(cleaned);
-    } catch {
-      return { message: content || 'I couldn\'t understand the response. Please try rephrasing your question.', charts: [] };
+    const parsed = extractPlan(content);
+    if (!parsed) {
+      return {
+        message: "I couldn't work that one out. Try asking it a slightly different way — for example \"total sales by month\" or \"top 5 products by revenue\".",
+        charts: [],
+      };
     }
 
     const charts: ChartConfig[] = [];
     let lastSql = '';
 
     for (const q of parsed.sql_queries || []) {
+      if (!q?.sql) continue;
       lastSql = q.sql;
       const { data, error } = executeQuery(q.sql);
-      if (error) {
-        return { message: `SQL Error: ${error}`, charts: [], sql_query: q.sql, error };
-      }
+      if (error) continue;
       if (data.length > 0) {
+        const cols = Object.keys(data[0]);
+        const numericCol = cols.find(c => typeof data[0][c] === 'number');
+        const labelCol = cols.find(c => c !== numericCol);
+        const x = cols.includes(q.chart?.x_axis) ? q.chart.x_axis : (labelCol ?? cols[0]);
+        const y = cols.includes(q.chart?.y_axis) ? q.chart.y_axis : (numericCol ?? cols[1] ?? cols[0]);
         charts.push({
-          type: q.chart.type as ChartConfig['type'],
-          title: q.chart.title,
-          x_axis: q.chart.x_axis,
-          y_axis: q.chart.y_axis,
+          type: pickChartType(q.chart?.type, data.length, x),
+          title: q.chart?.title || 'Result',
+          x_axis: x,
+          y_axis: y,
           data,
         });
       }
     }
 
+    const message = cleanMessage(parsed.message);
+
+    if (charts.length === 0) {
+      return {
+        message: message || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
+        charts: [],
+        sql_query: lastSql,
+      };
+    }
+
     return {
-      message: parsed.message || 'Here are your results.',
+      message: message || 'Here are your results.',
       charts,
       sql_query: lastSql,
     };
+
   } catch (e) {
     console.error('Query processing error:', e);
     return {
