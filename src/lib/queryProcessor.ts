@@ -122,39 +122,54 @@ export async function processQuery(
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || '';
 
-    let parsed: { sql_queries: { sql: string; chart: { type: string; title: string; x_axis: string; y_axis: string } }[]; message: string };
-    try {
-      const cleaned = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      parsed = JSON.parse(cleaned);
-    } catch {
-      return { message: content || 'I couldn\'t understand the response. Please try rephrasing your question.', charts: [] };
+    const parsed = extractPlan(content);
+    if (!parsed) {
+      return {
+        message: "I couldn't work that one out. Try asking it a slightly different way — for example \"total sales by month\" or \"top 5 products by revenue\".",
+        charts: [],
+      };
     }
 
     const charts: ChartConfig[] = [];
     let lastSql = '';
 
     for (const q of parsed.sql_queries || []) {
+      if (!q?.sql) continue;
       lastSql = q.sql;
       const { data, error } = executeQuery(q.sql);
-      if (error) {
-        return { message: `SQL Error: ${error}`, charts: [], sql_query: q.sql, error };
-      }
+      if (error) continue;
       if (data.length > 0) {
+        const cols = Object.keys(data[0]);
+        const numericCol = cols.find(c => typeof data[0][c] === 'number');
+        const labelCol = cols.find(c => c !== numericCol);
+        const x = cols.includes(q.chart?.x_axis) ? q.chart.x_axis : (labelCol ?? cols[0]);
+        const y = cols.includes(q.chart?.y_axis) ? q.chart.y_axis : (numericCol ?? cols[1] ?? cols[0]);
         charts.push({
-          type: q.chart.type as ChartConfig['type'],
-          title: q.chart.title,
-          x_axis: q.chart.x_axis,
-          y_axis: q.chart.y_axis,
+          type: pickChartType(q.chart?.type, data.length, x),
+          title: q.chart?.title || 'Result',
+          x_axis: x,
+          y_axis: y,
           data,
         });
       }
     }
 
+    const message = cleanMessage(parsed.message);
+
+    if (charts.length === 0) {
+      return {
+        message: message || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
+        charts: [],
+        sql_query: lastSql,
+      };
+    }
+
     return {
-      message: parsed.message || 'Here are your results.',
+      message: message || 'Here are your results.',
       charts,
       sql_query: lastSql,
     };
+
   } catch (e) {
     console.error('Query processing error:', e);
     return {
