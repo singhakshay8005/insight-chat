@@ -215,15 +215,18 @@ export async function processQuery(
       }
     }
 
-    const message = cleanMessage(parsed.message);
-
     if (charts.length === 0) {
       return {
-        message: message || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
+        message: cleanMessage(parsed.message) || "I looked for that but couldn't find matching values in your data. Try naming a column from your file.",
         charts: [],
         sql_query: lastSql,
       };
     }
+
+    // The first answer is written before the numbers exist, so it can be wrong.
+    // Rewrite it from the real results.
+    const message = await summarizeFromResults(userMessage, charts);
+
 
     return {
       message: message || 'Here are your results.',
