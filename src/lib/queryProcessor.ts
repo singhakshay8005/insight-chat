@@ -276,12 +276,24 @@ export async function processQuery(
         const labelCol = cols.find(c => c !== numericCol);
         const x = cols.includes(q.chart?.x_axis) ? q.chart.x_axis : (labelCol ?? cols[0]);
         const y = cols.includes(q.chart?.y_axis) ? q.chart.y_axis : (numericCol ?? cols[1] ?? cols[0]);
+        const type = pickChartType(q.chart?.type, data.length, x);
+        // Rank bar/pie charts by the metric (desc), breaking ties by label so
+        // the visual order always matches the written answer. Time series keep
+        // their chronological order.
+        const ranked = (type === 'bar' || type === 'pie')
+          ? [...data].sort((a, b) => {
+              const av = typeof a[y] === 'number' ? (a[y] as number) : -Infinity;
+              const bv = typeof b[y] === 'number' ? (b[y] as number) : -Infinity;
+              if (bv !== av) return bv - av;
+              return String(a[x]).localeCompare(String(b[x]));
+            })
+          : data;
         charts.push({
-          type: pickChartType(q.chart?.type, data.length, x),
+          type,
           title: q.chart?.title || 'Result',
           x_axis: x,
           y_axis: y,
-          data,
+          data: ranked,
         });
       }
     }
