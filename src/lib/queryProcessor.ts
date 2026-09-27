@@ -150,7 +150,12 @@ function localSummary(charts: ChartConfig[]): string {
   for (const c of charts) {
     const rows = c.data.filter(r => typeof r[c.y_axis] === 'number') as Record<string, number | string>[];
     if (rows.length === 0) continue;
-    const sorted = [...rows].sort((a, b) => (b[c.y_axis] as number) - (a[c.y_axis] as number));
+    // Deterministic ranking: value desc, then label asc so ties always resolve the same way.
+    const sorted = [...rows].sort((a, b) => {
+      const diff = (b[c.y_axis] as number) - (a[c.y_axis] as number);
+      if (diff !== 0) return diff;
+      return String(a[c.x_axis]).localeCompare(String(b[c.x_axis]));
+    });
     const top = sorted[0];
     const low = sorted[sorted.length - 1];
     const total = sorted.reduce((s, r) => s + (r[c.y_axis] as number), 0);
