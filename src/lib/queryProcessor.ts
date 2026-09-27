@@ -150,7 +150,12 @@ function localSummary(charts: ChartConfig[]): string {
   for (const c of charts) {
     const rows = c.data.filter(r => typeof r[c.y_axis] === 'number') as Record<string, number | string>[];
     if (rows.length === 0) continue;
-    const sorted = [...rows].sort((a, b) => (b[c.y_axis] as number) - (a[c.y_axis] as number));
+    // Deterministic ranking: value desc, then label asc so ties always resolve the same way.
+    const sorted = [...rows].sort((a, b) => {
+      const diff = (b[c.y_axis] as number) - (a[c.y_axis] as number);
+      if (diff !== 0) return diff;
+      return String(a[c.x_axis]).localeCompare(String(b[c.x_axis]));
+    });
     const top = sorted[0];
     const low = sorted[sorted.length - 1];
     const total = sorted.reduce((s, r) => s + (r[c.y_axis] as number), 0);
@@ -271,12 +276,24 @@ export async function processQuery(
         const labelCol = cols.find(c => c !== numericCol);
         const x = cols.includes(q.chart?.x_axis) ? q.chart.x_axis : (labelCol ?? cols[0]);
         const y = cols.includes(q.chart?.y_axis) ? q.chart.y_axis : (numericCol ?? cols[1] ?? cols[0]);
+        const type = pickChartType(q.chart?.type, data.length, x);
+        // Rank bar/pie charts by the metric (desc), breaking ties by label so
+        // the visual order always matches the written answer. Time series keep
+        // their chronological order.
+        const ranked = (type === 'bar' || type === 'pie')
+          ? [...data].sort((a, b) => {
+              const av = typeof a[y] === 'number' ? (a[y] as number) : -Infinity;
+              const bv = typeof b[y] === 'number' ? (b[y] as number) : -Infinity;
+              if (bv !== av) return bv - av;
+              return String(a[x]).localeCompare(String(b[x]));
+            })
+          : data;
         charts.push({
-          type: pickChartType(q.chart?.type, data.length, x),
+          type,
           title: q.chart?.title || 'Result',
           x_axis: x,
           y_axis: y,
-          data,
+          data: ranked,
         });
       }
     }
