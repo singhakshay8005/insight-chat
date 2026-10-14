@@ -368,7 +368,7 @@ export default function DataCleaning() {
                       <TableCell className="whitespace-nowrap">{schemaTableValue(column)}</TableCell>
                       <TableCell className="max-w-64 truncate">{column.samples.map(printable).join(', ') || '—'}</TableCell>
                     </TableRow>
-                  )}</TableBody>
+                  ))}</TableBody>
                 </Table>
               </div>
               <div className="mt-3 flex flex-wrap items-start gap-3">
