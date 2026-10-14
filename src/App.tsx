@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import DataCleaning from "./pages/DataCleaning.tsx";
+import { CleanedDataProvider } from "./contexts/CleanedDataContext";
 
 const queryClient = new QueryClient();
 
@@ -14,13 +16,16 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <CleanedDataProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/data-cleaning" element={<DataCleaning />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
+      </CleanedDataProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

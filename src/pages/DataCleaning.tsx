@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { ArrowLeft, Check, Clipboard, Database, FileSpreadsheet, FileUp, LoaderCircle, RotateCcw, Sparkles, Upload, WandSparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useCleanedData } from '@/contexts/CleanedDataContext';
-import { runPipeline, type PipelineResult, type SchemaColumn } from '@/lib/dataCleaning';
+import { runPipeline, SOURCE_INDEX, type PipelineResult, type SchemaColumn } from '@/lib/dataCleaning';
 
 const demoCsv = `Order Date,City,Product,Total Sales (Rs),Paid,Notes
 2024-01-15,delhi,Notebook,"Rs 1,500",true,January order
@@ -85,6 +85,8 @@ export default function DataCleaning() {
   const { saveChatReadyData } = useCleanedData();
 
   const columns = useMemo(() => result?.schema.map(column => column.name) ?? [], [result]);
+  const rawColumns = useMemo(() => Object.keys(result?.rawRows[0] ?? {}), [result]);
+  const navigate = useNavigate();
 
   const handleClean = async (nextFile: File) => {
     setBusy(true);
@@ -152,7 +154,8 @@ export default function DataCleaning() {
   const useForChat = () => {
     if (!result || !file) return;
     saveChatReadyData({ ...result, fileName: file.name });
-    toast.success('Your data is ready for the chat.');
+    toast.success('Your cleaned data is ready — ask your questions in the chat.');
+    navigate('/');
   };
 
   const report = result?.report;
@@ -335,13 +338,14 @@ export default function DataCleaning() {
               <div className="max-h-[420px] overflow-auto rounded-md border border-border">
                 <Table>
                   <TableHeader className="sticky top-0 z-10 bg-card">
-                    <TableRow>{columns.map(column => <TableHead key={column} className="whitespace-nowrap">{column}</TableHead>)}</TableRow>
+                    <TableRow>{(previewMode === 'raw' ? rawColumns : columns).map(column => <TableHead key={column} className="whitespace-nowrap">{column}</TableHead>)}</TableRow>
                   </TableHeader>
                   <TableBody>
                     {(previewMode === 'raw' ? result.rawRows : result.cleanedRows).slice(0, 50).map((row, rowIndex) => (
                       <TableRow key={`preview-${rowIndex}`}>
-                        {columns.map(column => {
-                          const changed = previewMode === 'cleaned' && !sameValue(result.rawRows[rowIndex]?.[column], row[column]);
+                        {(previewMode === 'raw' ? rawColumns : columns).map(column => {
+                          const sourceRow = result.rawRows[(row as Record<symbol, number>)[SOURCE_INDEX] ?? rowIndex];
+                          const changed = previewMode === 'cleaned' && !sameValue(sourceRow?.[result.columnSource?.[column] ?? column], row[column]);
                           return <TableCell key={`${rowIndex}-${column}`} className={`max-w-64 truncate whitespace-nowrap ${changed ? 'bg-warning/20 text-foreground' : ''}`}>{printable(row[column])}</TableCell>;
                         })}
                       </TableRow>

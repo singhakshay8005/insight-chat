@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { BarChart3, Upload as UploadIcon } from 'lucide-react';
+import { BarChart3, Upload as UploadIcon, WandSparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useCleanedData } from '@/contexts/CleanedDataContext';
 import { DownloadButton } from '@/components/DownloadButton';
 import { ChatMessage } from '@/components/ChatMessage';
 import { ChatInput } from '@/components/ChatInput';
@@ -8,7 +10,7 @@ import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { CsvUploader } from '@/components/CsvUploader';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { processQuery, type ChartConfig, type ConversationMessage } from '@/lib/queryProcessor';
-import { initDatabase, type ColumnMeta } from '@/lib/database';
+import { initDatabase, loadCsvData, type ColumnMeta } from '@/lib/database';
 
 type UploadedTable = { name: string; columns: string[]; meta: ColumnMeta[] };
 
@@ -57,6 +59,16 @@ export default function Index() {
     });
   }, []);
 
+  const { chatReadyData } = useCleanedData();
+  const loadedCleaned = useRef<unknown>(null);
+  useEffect(() => {
+    if (!chatReadyData || loadedCleaned.current === chatReadyData) return;
+    loadedCleaned.current = chatReadyData;
+    const tableName = chatReadyData.fileName.replace(/\.csv$/i, '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase() || 'cleaned_data';
+    const meta = loadCsvData(tableName, chatReadyData.cleanedRows);
+    handleSchemaLoaded(tableName, meta.map(m => m.name), meta);
+  }, [chatReadyData, handleSchemaLoaded]);
+
   const handleSend = useCallback(async (input: string) => {
     const userMsg: Message = { role: 'user', content: input };
     setMessages(prev => [...prev, userMsg]);
@@ -103,7 +115,15 @@ export default function Index() {
                   <h1 className="text-sm font-semibold text-foreground">BI Dashboard</h1>
                   <p className="text-xs text-muted-foreground">Upload data & ask questions</p>
                 </div>
-                <div className="ml-auto">
+                <div className="ml-auto flex items-center gap-1">
+                  <Link
+                    to="/data-cleaning"
+                    className="p-2 rounded-lg transition-colors hover:bg-secondary text-muted-foreground hover:text-foreground"
+                    title="Clean & prepare data"
+                    aria-label="Clean & prepare data"
+                  >
+                    <WandSparkles className="w-4 h-4" />
+                  </Link>
                   <button
                     onClick={() => setShowUploader(!showUploader)}
                     className={`p-2 rounded-lg transition-colors ${

@@ -33,9 +33,14 @@ export interface PipelineResult {
   schema: SchemaColumn[];
   schemaText: string;
   report: CleaningReport;
+  /** cleaned column name -> original raw column name */
+  columnSource?: Record<string, string>;
 }
 
 type Row = Record<string, unknown>;
+
+/** Hidden key holding the original raw row index (ignored by Object.keys / JSON). */
+export const SOURCE_INDEX = Symbol('sourceIndex');
 
 const NULL_TOKENS = new Set(['', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', '?', 'undefined', '#n/a']);
 const TRUE_TOKENS = new Set(['true', 'yes', 'y', '1']);
@@ -234,8 +239,9 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
   });
 
   // 2. Trim text and normalise null tokens.
-  let rows: Row[] = rawRows.map(r => {
+  let rows: Row[] = rawRows.map((r, index) => {
     const out: Row = {};
+    (out as Record<symbol, number>)[SOURCE_INDEX] = index;
     for (const [orig, name] of colMap) {
       const v = r[orig];
       out[name] = isNullish(v) ? null : String(v).trim().replace(/\s+/g, ' ');
@@ -357,6 +363,7 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
 
   const cleanedRows = rows.map(r => {
     const out: Row = {};
+    (out as Record<symbol, number>)[SOURCE_INDEX] = (r as Record<symbol, number>)[SOURCE_INDEX];
     columns.forEach(c => (out[c] = r[c]));
     return out;
   });
@@ -365,6 +372,7 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
   return {
     rawRows,
     cleanedRows,
+    columnSource: Object.fromEntries(colMap.map(([orig, name]) => [name, orig])),
     schema,
     schemaText: formatSchema(schema, cleanedRows.length),
     report: {
