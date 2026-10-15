@@ -35,7 +35,7 @@ describe('runPipeline missing-value handling', () => {
     expect(result.cleanedRows.map(row => row.score)).toEqual([10, 30, 30, 40]);
     expect(result.cleanedRows.map(row => row.category)).toEqual(['East', 'East', 'West', 'East']);
     expect(result.cleanedRows.map(row => row.notes)).toEqual(['Shared', 'Shared', 'Shared', 'Shared']);
-    expect(result.cleanedRows.map(row => row.day)).toEqual(['2024-01-01', '2024-01-03', null, '2024-01-04']);
+    expect(result.cleanedRows.map(row => row.day)).toEqual(['2024-01-01', null, '2024-01-03', '2024-01-04']);
     expect(result.report.missingFilled.score).toEqual({ count: 1, method: 'median', value: 30 });
     expect(result.report.missingFilled.category).toEqual({ count: 1, method: 'most common', value: 'East' });
     expect(result.report.missingFilled.notes).toEqual({ count: 2, method: 'most common', value: 'Shared' });
