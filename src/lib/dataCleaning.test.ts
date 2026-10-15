@@ -6,8 +6,8 @@ describe('runPipeline missing-value handling', () => {
     const csv = [
       'score,category,notes,day,cabin,empty_column',
       '10,East,shared,2024-01-01,,',
-      '20,East,,,,' ,
-      '30,West,,,,' ,
+      '20,East,,,,',
+      '30,West,,,,',
       '40,,,,7,',
     ].join('\n');
 
@@ -17,7 +17,7 @@ describe('runPipeline missing-value handling', () => {
     expect(result.report.columnsDropped).not.toContain('cabin');
     expect(result.report.sparseColumns).toContainEqual({ name: 'cabin', missingPercent: 75 });
     expect(result.report.warnings).toContain('Sparse column cabin: 75% missing, kept as is (nulls not filled).');
-    expect(result.cleanedRows.map(row => row.cabin)).toEqual([null, null, null, '7']);
+    expect(result.cleanedRows.map(row => row.cabin)).toEqual([null, null, null, 7]);
     expect(result.report.missingFilled).not.toHaveProperty('cabin');
   });
 

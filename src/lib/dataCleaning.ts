@@ -47,7 +47,7 @@ const NULL_TOKENS = new Set(['', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 
 const TRUE_TOKENS = new Set(['true', 'yes', 'y', '1']);
 const FALSE_TOKENS = new Set(['false', 'no', 'n', '0']);
 const BOOL_TOKENS = new Set(['true', 'false', 'yes', 'no', 'y', 'n']);
-const MISSING_SPARSE_THRESHOLD = 0.5;
+export const MISSING_SPARSE_THRESHOLD = 0.5;
 
 const SQL_TYPE: Record<ColumnType, string> = {
   numeric: 'NUMBER',
