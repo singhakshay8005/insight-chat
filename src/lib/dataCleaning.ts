@@ -22,6 +22,7 @@ export interface CleaningReport {
   emptyRowsRemoved: number;
   columnsDropped: string[];
   missingFilled: Record<string, { count: number; method: string; value: unknown }>;
+  sparseColumns: { name: string; missingPercent: number }[];
   typeConversions: Record<string, string>;
   outliersFlagged: Record<string, { count: number; lowerBound: number; upperBound: number }>;
   warnings: string[];
@@ -46,6 +47,7 @@ const NULL_TOKENS = new Set(['', 'n/a', 'na', 'null', 'none', 'nan', '-', '--', 
 const TRUE_TOKENS = new Set(['true', 'yes', 'y', '1']);
 const FALSE_TOKENS = new Set(['false', 'no', 'n', '0']);
 const BOOL_TOKENS = new Set(['true', 'false', 'yes', 'no', 'y', 'n']);
+const MISSING_SPARSE_THRESHOLD = 0.5;
 
 const SQL_TYPE: Record<ColumnType, string> = {
   numeric: 'NUMBER',
@@ -166,6 +168,50 @@ function mode(values: string[]): string {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
 }
 
+function handleMissingValues(rows: Row[], types: Record<string, ColumnType>) {
+  const missingFilled: CleaningReport['missingFilled'] = {};
+  const sparseColumns: CleaningReport['sparseColumns'] = [];
+  const warnings: string[] = [];
+
+  for (const [column, type] of Object.entries(types)) {
+    const missing = rows.filter(row => row[column] === null || row[column] === undefined);
+    if (!missing.length) continue;
+
+    const missingRatio = rows.length ? missing.length / rows.length : 0;
+    if (missingRatio > MISSING_SPARSE_THRESHOLD) {
+      const missingPercent = Math.round(missingRatio * 100);
+      sparseColumns.push({ name: column, missingPercent });
+      warnings.push(`Sparse column ${column}: ${missingPercent}% missing, kept as is (nulls not filled).`);
+      continue;
+    }
+
+    if (type === 'numeric') {
+      const nums = rows.map(row => row[column]).filter((value): value is number => typeof value === 'number');
+      if (!nums.length) continue;
+      const value = Math.round(median(nums) * 100) / 100;
+      missing.forEach(row => (row[column] = value));
+      missingFilled[column] = { count: missing.length, method: 'median', value };
+    } else if (type === 'categorical' || type === 'text' || type === 'boolean') {
+      const present = rows
+        .map(row => row[column])
+        .filter(value => value !== null && value !== undefined)
+        .map(String);
+      const hasMode = present.length > 0;
+      const commonValue = hasMode ? mode(present) : 'Unknown';
+      const value = type === 'boolean' && hasMode ? commonValue === 'true' : commonValue;
+      missing.forEach(row => (row[column] = value));
+      missingFilled[column] = {
+        count: missing.length,
+        method: hasMode ? 'most common' : 'placeholder',
+        value,
+      };
+    }
+    // Dates are intentionally left empty so that no trend data is invented.
+  }
+
+  return { missingFilled, sparseColumns, warnings };
+}
+
 function buildSchema(rows: Row[], columns: string[], types: Record<string, ColumnType>): SchemaColumn[] {
   return columns.map(name => {
     const values = rows.map(r => r[name]);
@@ -255,11 +301,11 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
   rows = rows.filter(r => columns.some(c => r[c] !== null));
   const emptyRowsRemoved = beforeEmpty - rows.length;
 
-  // 4. Drop fully-empty (or >90% empty) columns.
+  // 4. Drop only columns that are 100% empty; sparse columns are retained.
   const columnsDropped: string[] = [];
   columns = columns.filter(c => {
     const nulls = rows.filter(r => r[c] === null).length;
-    if (rows.length && nulls / rows.length > 0.9) {
+    if (rows.length && nulls === rows.length) {
       columnsDropped.push(c);
       return false;
     }
@@ -320,31 +366,9 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
   });
   const duplicatesRemoved = beforeDup - rows.length;
 
-  // 7. Fill missing values (median for numbers, most common for categories/booleans).
-  const missingFilled: CleaningReport['missingFilled'] = {};
-  for (const c of columns) {
-    const missing = rows.filter(r => r[c] === null);
-    if (!missing.length) continue;
-    const type = types[c];
-    if (type === 'numeric') {
-      const nums = rows.map(r => r[c]).filter((v): v is number => typeof v === 'number');
-      if (!nums.length) continue;
-      const value = Math.round(median(nums) * 100) / 100;
-      missing.forEach(r => (r[c] = value));
-      missingFilled[c] = { count: missing.length, method: 'median', value };
-    } else if (type === 'categorical' || type === 'boolean') {
-      const present = rows.map(r => r[c]).filter(v => v !== null).map(String);
-      if (!present.length) continue;
-      const m = mode(present);
-      const value = type === 'boolean' ? m === 'true' : m;
-      missing.forEach(r => (r[c] = value));
-      missingFilled[c] = { count: missing.length, method: 'most common', value };
-    } else if (type === 'text') {
-      missing.forEach(r => (r[c] = 'Unknown'));
-      missingFilled[c] = { count: missing.length, method: 'placeholder', value: 'Unknown' };
-    }
-    // Dates are left empty: inventing a date would distort time trends.
-  }
+  // 7. Fill regular missing values and keep sparse columns unchanged.
+  const { missingFilled, sparseColumns, warnings: missingWarnings } = handleMissingValues(rows, types);
+  warnings.push(...missingWarnings);
 
   // 8. Flag outliers (IQR rule) without changing the values.
   const outliersFlagged: CleaningReport['outliersFlagged'] = {};
@@ -385,6 +409,7 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
       emptyRowsRemoved,
       columnsDropped,
       missingFilled,
+      sparseColumns,
       typeConversions,
       outliersFlagged,
       warnings,
