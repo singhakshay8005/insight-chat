@@ -311,7 +311,7 @@ export async function runPipeline(file: File): Promise<PipelineResult> {
     }
     return true;
   });
-  if (columnsDropped.length) warnings.push(`Dropped mostly-empty column(s): ${columnsDropped.join(', ')}.`);
+  if (columnsDropped.length) warnings.push(`Dropped fully empty column(s): ${columnsDropped.join(', ')}.`);
 
   // 5. Detect types and convert values.
   const types: Record<string, ColumnType> = {};
