@@ -296,6 +296,7 @@ export default function DataCleaning() {
                     <TabsTrigger value="renames">Column Renames</TabsTrigger>
                     <TabsTrigger value="types">Type Detection</TabsTrigger>
                     <TabsTrigger value="missing">Missing Values</TabsTrigger>
+                    <TabsTrigger value="sparse">Sparse Columns</TabsTrigger>
                     <TabsTrigger value="outliers">Outliers</TabsTrigger>
                     <TabsTrigger value="warnings">Warnings</TabsTrigger>
                   </TabsList>
@@ -308,6 +309,9 @@ export default function DataCleaning() {
                 </TabsContent>
                 <TabsContent value="missing">
                   <ReportTable headers={['Column', 'Values filled', 'Method', 'Value']} rows={Object.entries(report?.missingFilled ?? {}).map(([name, detail]) => [name, String(detail.count), detail.method, printable(detail.value)])} empty="No missing values were filled." />
+                </TabsContent>
+                <TabsContent value="sparse">
+                  <ReportTable headers={['Column', 'Missing', 'Treatment']} rows={(report?.sparseColumns ?? []).map(column => [column.name, `${column.missingPercent}%`, 'Kept as is; nulls not filled'])} empty="No sparse columns were found." />
                 </TabsContent>
                 <TabsContent value="outliers">
                   <ReportTable headers={['Column', 'Flagged', 'Lower bound', 'Upper bound']} rows={Object.entries(report?.outliersFlagged ?? {}).map(([name, detail]) => [name, String(detail.count), String(detail.lowerBound), String(detail.upperBound)])} empty="No outliers were flagged." />
