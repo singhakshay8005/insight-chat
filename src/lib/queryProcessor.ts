@@ -228,7 +228,7 @@ export async function processQuery(
 
     if (!response.ok) {
       if (response.status === 429) {
-        return { message: 'Rate limit exceeded. Please wait a moment and try again.', charts: [] };
+        return { message: 'Request limit exceeded for now. Please try again later.', charts: [] };
       }
       throw new Error(`API error: ${response.status}`);
     }
