@@ -1,3 +1,4 @@
+import { postClean } from '@/api/client';
 import Papa from 'papaparse';
 
 export type ColumnType = 'numeric' | 'datetime' | 'boolean' | 'categorical' | 'text';
@@ -255,7 +256,28 @@ function formatSchema(schema: SchemaColumn[], rowCount: number): string {
   ].join('\n');
 }
 
+type ApiResult = Omit<PipelineResult, 'columnSource'> & {
+  sourceRows: number[];
+  columnSource: Record<string, string>;
+};
+
+/** Cleaning ab Python (pandas) backend mein hoti hai. */
 export async function runPipeline(file: File): Promise<PipelineResult> {
+  const res = await postClean(file);
+  if (!res.ok) {
+    const err: { detail?: string } = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Cleaning failed (${res.status})`);
+  }
+  const data = (await res.json()) as ApiResult;
+  // Server ne har cleaned row ka original row number bheja hai (highlight ke liye).
+  data.cleanedRows.forEach((row, i) => {
+    (row as unknown as Record<symbol, number>)[SOURCE_INDEX] = data.sourceRows[i];
+  });
+  return data;
+}
+
+/** Purana browser-only version, backup ke liye. */
+export async function runPipelineLocal(file: File): Promise<PipelineResult> {
   const parsed = await new Promise<Papa.ParseResult<Row>>((resolve, reject) => {
     Papa.parse<Row>(file, { header: true, skipEmptyLines: false, complete: resolve, error: reject });
   });

@@ -2,3 +2,6 @@ fastapi
 uvicorn[standard]
 httpx
 python-dotenv
+pandas
+numpy
+python-multipart

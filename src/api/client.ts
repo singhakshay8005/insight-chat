@@ -7,3 +7,9 @@ export function postChat(messages: unknown[]): Promise<Response> {
     body: JSON.stringify({ messages }),
   });
 }
+
+export function postClean(file: File): Promise<Response> {
+  const form = new FormData();
+  form.append('file', file);
+  return fetch(`${API_URL}/clean`, { method: 'POST', body: form });
+}
