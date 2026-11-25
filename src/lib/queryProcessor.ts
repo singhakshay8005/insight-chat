@@ -1,4 +1,5 @@
 import { executeQuery } from './database';
+import { postChat } from '@/api/client';
 
 export interface ChartConfig {
   type: 'line' | 'bar' | 'pie' | 'area';
@@ -179,27 +180,18 @@ async function summarizeFromResults(userMessage: string, charts: ChartConfig[]):
     })
     .join('\n\n');
 
-  try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bi-chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      try {
+    const response = await postChat([
+      {
+        role: 'system',
+        content:
+          'You explain business results to a non-technical person in 2-4 short sentences.\n' +
+          'You are given the FINAL computed results. Use ONLY these numbers and labels.\n' +
+          'Never invent, guess or change a label or value. The highest value is whichever row actually has the largest number here.\n' +
+          'Bold key figures with **. No SQL, no tables, no jargon, no bullet lists.',
       },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You explain business results to a non-technical person in 2-4 short sentences.\n' +
-              'You are given the FINAL computed results. Use ONLY these numbers and labels.\n' +
-              'Never invent, guess or change a label or value. The highest value is whichever row actually has the largest number here.\n' +
-              'Bold key figures with **. No SQL, no tables, no jargon, no bullet lists.',
-          },
-          { role: 'user', content: `Question: ${userMessage}\n\nResults:\n${tables}` },
-        ],
-      }),
-    });
+      { role: 'user', content: `Question: ${userMessage}\n\nResults:\n${tables}` },
+    ]);
     if (!response.ok) return fallback;
     const json = await response.json();
     const text = cleanMessage(json.choices?.[0]?.message?.content || '');
@@ -232,21 +224,11 @@ export async function processQuery(
   ];
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bi-chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-      },
-      body: JSON.stringify({ messages }),
-    });
+    const response = await postChat(messages);
 
     if (!response.ok) {
       if (response.status === 429) {
-        return { message: 'Rate limit exceeded. Please wait a moment and try again.', charts: [] };
-      }
-      if (response.status === 402) {
-        return { message: 'AI credits exhausted. Please add credits in your Lovable workspace settings.', charts: [] };
+        return { message: 'Request limit exceeded for now. Please try again later.', charts: [] };
       }
       throw new Error(`API error: ${response.status}`);
     }
